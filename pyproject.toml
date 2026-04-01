@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "galaga-copilot"
+version = "0.1.0"
+description = "Galaga Copilot - MegaTech Robot Wars"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "pygame>=2.0"
+]
+
+[project.scripts]
+galaga = "game.game.galaga_copilot:main"
+
