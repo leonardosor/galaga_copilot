@@ -413,10 +413,12 @@ async def main():
                random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
     print("pygbag: init done, starting game loop")
 
-    # Debug: flash green briefly so we can confirm init completed
+    # Debug checkpoints — each holds for ~60 frames so they're visible
+    # CP1: green = init done
     screen.fill((0, 200, 0))
     pygame.display.flip()
-    await asyncio.sleep(0)
+    for _ in range(60):
+        await asyncio.sleep(0)
 
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
@@ -446,6 +448,12 @@ async def main():
 
         pygame.time.set_timer(EVT_SPAWN, e_spawn)
         pygame.time.set_timer(EVT_TOKEN, 5000)
+
+        # CP2: blue = past set_timer, entering inner loop
+        screen.fill((0, 100, 255))
+        pygame.display.flip()
+        for _ in range(60):
+            await asyncio.sleep(0)
 
         # ── Inner Game Loop ──────────────────────────────────────────
         while not game_over:
