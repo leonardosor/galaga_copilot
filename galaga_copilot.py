@@ -400,14 +400,16 @@ async def main():
     global screen, clk, font, font_s, font_b, stars
 
     pygame.init()
+    pygame.font.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Galaga Copilot  ·  MegaTech Robot Wars")
     clk    = pygame.time.Clock()
-    font   = pygame.font.SysFont(None, 34)
-    font_s = pygame.font.SysFont(None, 22)
-    font_b = pygame.font.SysFont(None, 70)
+    font   = pygame.font.Font(None, 34)
+    font_s = pygame.font.Font(None, 22)
+    font_b = pygame.font.Font(None, 70)
     stars  = [[random.randint(0, WIDTH), random.randint(0, HEIGHT),
                random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
+    print("pygbag: init done, starting game loop")
 
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
