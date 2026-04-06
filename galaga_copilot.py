@@ -411,6 +411,11 @@ async def main():
                random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
     print("pygbag: init done, starting game loop")
 
+    # Debug: flash green briefly so we can confirm init completed
+    screen.fill((0, 200, 0))
+    pygame.display.flip()
+    await asyncio.sleep(0)
+
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
         px, py    = WIDTH // 2 - PW // 2, HEIGHT - PH - 10
