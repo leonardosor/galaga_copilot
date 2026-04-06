@@ -1,8 +1,11 @@
 import asyncio
+import os
 import pygame
 import random
 import sys
 import math
+
+os.environ["SDL_AUDIODRIVER"] = "dummy"   # prevent browser audio blocking
 
 # ═══════════════════════════════════════════════════════════════════
 #  CONSTANTS
@@ -399,8 +402,7 @@ def make_blast(cx, cy):
 async def main():
     global screen, clk, font, font_s, font_b, stars
 
-    pygame.display.init()
-    pygame.font.init()
+    pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Galaga Copilot  ·  MegaTech Robot Wars")
     clk    = pygame.time.Clock()
