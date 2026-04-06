@@ -4,8 +4,6 @@ import random
 import sys
 import math
 
-pygame.init()
-
 # ═══════════════════════════════════════════════════════════════════
 #  CONSTANTS
 # ═══════════════════════════════════════════════════════════════════
@@ -49,25 +47,17 @@ E_DIVER        = 1
 BASE_ENEMY_SPD = 2
 BASE_SPAWN_MS  = 800
 
-# Events
+# Events (USEREVENT is a plain integer constant, safe at module level)
 EVT_SPAWN = pygame.USEREVENT + 1
 EVT_TOKEN = pygame.USEREVENT + 2
-pygame.time.set_timer(EVT_SPAWN, BASE_SPAWN_MS)
-pygame.time.set_timer(EVT_TOKEN, 5000)
 
-# ═══════════════════════════════════════════════════════════════════
-#  DISPLAY / FONTS
-# ═══════════════════════════════════════════════════════════════════
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Galaga Copilot  ·  MegaTech Robot Wars")
-clk    = pygame.time.Clock()
-font   = pygame.font.SysFont(None, 34)
-font_s = pygame.font.SysFont(None, 22)
-font_b = pygame.font.SysFont(None, 70)
-
-# Scrolling star-field  [x, y, size, speed]
-stars = [[random.randint(0, WIDTH), random.randint(0, HEIGHT),
-          random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
+# Display/font globals — initialised inside main() once pygame is ready
+screen = None
+clk    = None
+font   = None
+font_s = None
+font_b = None
+stars  = []
 
 # ═══════════════════════════════════════════════════════════════════
 #  RENDERING HELPERS
@@ -407,6 +397,18 @@ def make_blast(cx, cy):
 # ═══════════════════════════════════════════════════════════════════
 
 async def main():
+    global screen, clk, font, font_s, font_b, stars
+
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Galaga Copilot  ·  MegaTech Robot Wars")
+    clk    = pygame.time.Clock()
+    font   = pygame.font.SysFont(None, 34)
+    font_s = pygame.font.SysFont(None, 22)
+    font_b = pygame.font.SysFont(None, 70)
+    stars  = [[random.randint(0, WIDTH), random.randint(0, HEIGHT),
+               random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
+
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
         px, py    = WIDTH // 2 - PW // 2, HEIGHT - PH - 10
