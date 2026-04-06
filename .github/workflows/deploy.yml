@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install pygbag
-        run: pip install pygbag
+        run: pip install pygbag==0.8.6
 
       - name: Prepare game folder
         run: mkdir -p game && cp galaga_copilot.py game/main.py

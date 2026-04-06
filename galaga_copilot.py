@@ -399,7 +399,7 @@ def make_blast(cx, cy):
 async def main():
     global screen, clk, font, font_s, font_b, stars
 
-    pygame.init()
+    pygame.display.init()
     pygame.font.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Galaga Copilot  ·  MegaTech Robot Wars")
