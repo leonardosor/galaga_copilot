@@ -440,7 +440,6 @@ async def main():
 
         # ── Inner Game Loop ──────────────────────────────────────────
         while not game_over:
-            clk.tick(FPS)
 
             # ── Events ────────────────────────────────────────────
             for event in pygame.event.get():
@@ -720,7 +719,6 @@ async def main():
 
         # ── Death animation before game-over screen ───────────────
         for _ in range(60):
-            clk.tick(FPS)
             screen.fill(DARK_BG)
             draw_stars()
             for p in particles[:]:
@@ -740,5 +738,4 @@ async def main():
             return
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
