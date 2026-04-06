@@ -2,5 +2,6 @@
 set -euo pipefail
 python -m pip install --upgrade pip
 pip install pygbag
-python -m pygbag --build --output out ./game
-echo "Build complete: out/ contains the web build"
+mkdir -p game && cp galaga_copilot.py game/main.py
+python -m pygbag --build game/
+echo "Build complete: game/build/web/ contains the web build"

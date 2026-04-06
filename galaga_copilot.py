@@ -1,3 +1,4 @@
+import asyncio
 import pygame
 import random
 import sys
@@ -350,7 +351,7 @@ def draw_hud(score, level, lives, weapon, w_expire, hits, shots):
         pygame.draw.rect(screen, NEON_BLUE, (lx + 5, HEIGHT - 14, 6, 6))
 
 
-def game_over_screen(score):
+async def game_over_screen(score):
     ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     ov.fill((0, 0, 0, 160))
     screen.blit(ov, (0, 0))
@@ -364,12 +365,13 @@ def game_over_screen(score):
     while True:
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                return False
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_r:
                     return True
                 if ev.key == pygame.K_q:
-                    pygame.quit(); sys.exit()
+                    return False
+        await asyncio.sleep(0)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -404,7 +406,7 @@ def make_blast(cx, cy):
 #  MAIN
 # ═══════════════════════════════════════════════════════════════════
 
-def main():
+async def main():
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
         px, py    = WIDTH // 2 - PW // 2, HEIGHT - PH - 10
@@ -441,7 +443,7 @@ def main():
             # ── Events ────────────────────────────────────────────
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit(); sys.exit()
+                    return
 
                 if event.type == EVT_SPAWN:
                     etype = E_DIVER if random.random() < 0.28 else E_NORMAL
@@ -712,6 +714,7 @@ def main():
                                  HEIGHT // 2 - 40))
                 lvl_msg -= 1
             pygame.display.flip()
+            await asyncio.sleep(0)
 
         # ── Death animation before game-over screen ───────────────
         for _ in range(60):
@@ -725,12 +728,15 @@ def main():
                     particles.remove(p)
             draw_particles(particles)
             pygame.display.flip()
+            await asyncio.sleep(0)
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
-                    pygame.quit(); sys.exit()
+                    return
 
-        game_over_screen(score)   # returns True (R) or exits (Q)
+        restart = await game_over_screen(score)
+        if not restart:
+            return
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
