@@ -447,6 +447,7 @@ async def main():
 
         # ── Inner Game Loop ──────────────────────────────────────────
         while not game_over:
+            print("frame: loop start")
 
             # ── Events ────────────────────────────────────────────
             for event in pygame.event.get():
@@ -703,6 +704,7 @@ async def main():
                     particles.remove(p)
 
             # ── Draw ──────────────────────────────────────────────
+            print("frame: reached draw section")
             screen.fill(DARK_BG)
             draw_stars()
             draw_particles(particles)
