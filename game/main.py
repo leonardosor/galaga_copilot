@@ -50,10 +50,6 @@ E_DIVER        = 1
 BASE_ENEMY_SPD = 2
 BASE_SPAWN_MS  = 800
 
-# Events (USEREVENT is a plain integer constant, safe at module level)
-EVT_SPAWN = pygame.USEREVENT + 1
-EVT_TOKEN = pygame.USEREVENT + 2
-
 # Display/font globals — initialised inside main() once pygame is ready
 screen = None
 clk    = None
@@ -228,14 +224,22 @@ def draw_enemy(e):
 
 
 def draw_bullets(bullets):
-    TYPE_COLORS = {
-        'normal': CYAN, 'double': GREEN,
-        'spread': YELLOW, 'bomb': ORANGE, 'enemy': RED,
-    }
     for b in bullets:
         r = b['rect']
-        # Display different visuals per rocket type
-        if b['type'] == 'bomb':
+        if b['type'] == 'normal':
+            pygame.draw.rect(screen, CYAN, r)
+            pygame.draw.rect(screen, WHITE, (r.x, r.y, r.width, 2))
+        elif b['type'] == 'double':
+            # dual-core projectile with trailing glows
+            pygame.draw.rect(screen, GREEN, r)
+            pygame.draw.rect(screen, WHITE, (r.x, r.y, r.width, 2))
+            draw_glow(r.centerx - 4, r.centery, 6, GREEN, 80)
+            draw_glow(r.centerx + 4, r.centery, 6, GREEN, 80)
+        elif b['type'] == 'spread':
+            # jagged tracer for spread shots
+            pygame.draw.rect(screen, YELLOW, r)
+            pygame.draw.line(screen, WHITE, (r.x, r.y + 2), (r.x + r.width, r.y + 2), 2)
+        elif b['type'] == 'bomb':
             # small glowing orb with a lit fuse
             pygame.draw.ellipse(screen, ORANGE, r)
             inner = r.inflate(-6, -6)
@@ -247,91 +251,66 @@ def draw_bullets(bullets):
                 fy = r.y - 4
                 pygame.draw.line(screen, YELLOW, (fx, fy), (fx + 6, fy - 6), 2)
                 draw_glow(fx + 6, fy - 6, 6, YELLOW, 90)
-        elif b['type'] == 'double':
-            # dual-core projectile with trailing glows
-            pygame.draw.rect(screen, GREEN, r)
-            pygame.draw.rect(screen, WHITE, (r.x, r.y, r.width, 2))
-            draw_glow(r.centerx - 4, r.centery, 6, GREEN, 80)
-            draw_glow(r.centerx + 4, r.centery, 6, GREEN, 80)
-        elif b['type'] == 'spread':
-            # jagged tracer for spread shots
-            pygame.draw.rect(screen, YELLOW, r)
-            pygame.draw.line(screen, WHITE, (r.x, r.y + 2), (r.x + r.width, r.y + 2), 2)
-            # slight spark
-            draw_glow(r.centerx, r.y, 4, YELLOW, 70)
-        elif b['type'] == 'enemy':
-            pygame.draw.rect(screen, RED,  r)
-            pygame.draw.rect(screen, PINK, (r.x, r.y, r.width, 3))
-        else:
-            col = TYPE_COLORS.get(b['type'], CYAN)
-            pygame.draw.rect(screen, col,   r)
-            pygame.draw.rect(screen, WHITE, (r.x, r.y, r.width, 3))
+        else:  # enemy bullet
+            pygame.draw.rect(screen, RED, r)
 
 
 def draw_laser(cx, py):
-    """Vertical laser beam from player centre to top of screen."""
-    for w, a in ((14, 20), (8, 55), (4, 130), (2, 255)):
-        ls = pygame.Surface((w, py), pygame.SRCALPHA)
-        ls.fill((0, 200, 255, a))
-        screen.blit(ls, (cx - w // 2, 0))
-    pygame.draw.line(screen, WHITE, (cx, 0), (cx, py), 1)
+    """Draw vertical laser beam from player to top of screen."""
+    pygame.draw.line(screen, (0, 200, 255), (cx, py), (cx, 0), 4)
+    pygame.draw.line(screen, WHITE, (cx, py), (cx, 0), 2)
+    # Laser glows
+    for y in range(0, py, 20):
+        draw_glow(cx, y, 8, (0, 200, 255), 60)
 
 
 def draw_blasts(blasts):
-    for b in blasts:
-        r   = int(b['radius'])
-        pct = b['life'] / b['max_life']
-        if r < 1:
-            continue
-        a  = int(200 * pct)
-        bs = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
-        pygame.draw.circle(bs, (255, 140,   0, a // 4), (r + 3, r + 3), r)
-        pygame.draw.circle(bs, (255, 220,   0, a),      (r + 3, r + 3), r, 3)
-        pygame.draw.circle(bs, (255, 255, 255, a // 2), (r + 3, r + 3), r // 3 + 1)
-        screen.blit(bs, (b['cx'] - r - 3, b['cy'] - r - 3))
-
-
-def draw_particles(particles):
-    for p in particles:
-        pct   = p['life'] / p['max_life']
-        alpha = int(255 * pct)
-        size  = max(1, int(p['size'] * pct))
-        ps    = pygame.Surface((size * 2 + 1, size * 2 + 1), pygame.SRCALPHA)
-        pygame.draw.circle(ps, (*p['color'], alpha), (size, size), size)
-        screen.blit(ps, (int(p['x']) - size, int(p['y']) - size))
+    """Draw expanding bomb blast circles."""
+    for blast in blasts:
+        r = blast['radius']
+        if r > 0:
+            alpha = int(255 * (blast['life'] / blast['max_life']))
+            # Outer ring
+            pygame.draw.circle(screen, ORANGE, (int(blast['cx']), int(blast['cy'])), int(r), 3)
+            # Inner fill
+            if r > 10:
+                inner_alpha = min(120, alpha)
+                inner_surf = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+                pygame.draw.circle(inner_surf, (*ORANGE, inner_alpha), (int(r), int(r)), int(r * 0.7))
+                screen.blit(inner_surf, (blast['cx'] - r, blast['cy'] - r))
 
 
 def draw_tokens(tokens):
-    t = pygame.time.get_ticks()
-    for (tok, ttype) in tokens:
-        cx, cy = tok.centerx, tok.centery
-        col    = WEAPON_COLORS[ttype]
-        angle  = (t * 0.1) % 360
-        pts    = [(cx + 13 * math.cos(math.radians(60 * i + angle)),
-                   cy + 13 * math.sin(math.radians(60 * i + angle)))
-                  for i in range(6)]
-        pygame.draw.polygon(screen, col,   pts)
-        pygame.draw.polygon(screen, WHITE, pts, 2)
-        lbl = font_s.render(WEAPON_NAMES[ttype][0], True, BLACK)
-        screen.blit(lbl, (cx - lbl.get_width() // 2,
-                          cy - lbl.get_height() // 2))
+    """Draw floating weapon power-up tokens."""
+    for tok, ttype in tokens:
+        # Token base
+        pygame.draw.ellipse(screen, WEAPON_COLORS[ttype], tok)
+        pygame.draw.ellipse(screen, WHITE, tok, 2)
+        # Weapon letter
+        letter = WEAPON_NAMES[ttype][0]  # First letter
+        text = font_s.render(letter, True, WHITE)
+        tx = tok.centerx - text.get_width() // 2
+        ty = tok.centery - text.get_height() // 2
+        screen.blit(text, (tx, ty))
 
 
 def draw_hud(score, level, lives, weapon, w_expire, hits, shots):
+    """Draw heads-up display with score, lives, weapon info."""
     screen.blit(font.render(f"Score: {score}", True, WHITE), (10, 10))
-    ls = font.render(f"Lv {level}", True, GOLD)
-    screen.blit(ls, (WIDTH - ls.get_width() - 10, 10))
-
-    wc = WEAPON_COLORS.get(weapon, WHITE)
-    ws = font_s.render(f"WPN: {WEAPON_NAMES[weapon]}", True, wc)
-    screen.blit(ws, (10, 44))
-    if weapon != W_NORMAL:
+    screen.blit(font_s.render(f"Level: {level}", True, (200, 200, 200)), (10, 45))
+    
+    # Weapon display with countdown bar
+    if weapon != W_NORMAL and w_expire > 0:
+        wc = WEAPON_COLORS[weapon]
+        wn = WEAPON_NAMES[weapon]
+        screen.blit(font_s.render(f"Weapon: {wn}", True, wc), (10, 62))
+        # Countdown bar
         bw = int((w_expire / WEAPON_DURATION) * 100)
-        pygame.draw.rect(screen, DARK_GRAY, (10, 62, 100, 7))
-        pygame.draw.rect(screen, wc,        (10, 62, bw,  7))
+        pygame.draw.rect(screen, DARK_GRAY, (10, 82, 100, 7))
+        pygame.draw.rect(screen, wc,        (10, 82, bw,  7))
 
     rate = (hits / shots * 100) if shots > 0 else 0
-    screen.blit(font_s.render(f"Acc: {rate:.0f}%", True, (140, 140, 160)), (10, 72))
+    screen.blit(font_s.render(f"Acc: {rate:.0f}%", True, (140, 140, 160)), (10, 92))
 
     # Mini ship icons for lives
     for i in range(lives):
@@ -344,33 +323,14 @@ def draw_hud(score, level, lives, weapon, w_expire, hits, shots):
         pygame.draw.rect(screen, NEON_BLUE, (lx + 5, HEIGHT - 14, 6, 6))
 
 
-async def game_over_screen(score):
-    ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    ov.fill((0, 0, 0, 160))
-    screen.blit(ov, (0, 0))
-    go  = font_b.render("GAME  OVER", True, RED)
-    sc  = font.render(f"Score: {score}", True, WHITE)
-    tip = font_s.render("R = Restart        Q = Quit", True, CYAN)
-    screen.blit(go,  (WIDTH // 2 - go.get_width()  // 2, HEIGHT // 2 - 80))
-    screen.blit(sc,  (WIDTH // 2 - sc.get_width()  // 2, HEIGHT // 2))
-    screen.blit(tip, (WIDTH // 2 - tip.get_width() // 2, HEIGHT // 2 + 50))
-    pygame.display.flip()
-    while True:
-        for ev in pygame.event.get():
-            if ev.type == pygame.QUIT:
-                return False
-            if ev.type == pygame.KEYDOWN:
-                if ev.key == pygame.K_r:
-                    return True
-                if ev.key == pygame.K_q:
-                    return False
-        clk.tick(FPS)
-        await asyncio.sleep(0)
+def make_blast(cx, cy):
+    return {
+        'cx': cx, 'cy': cy,
+        'radius': 0, 'max_radius': 65,
+        'life': 32, 'max_life': 32,
+        'hit_ids': set(),
+    }
 
-
-# ═══════════════════════════════════════════════════════════════════
-#  GAME HELPERS
-# ═══════════════════════════════════════════════════════════════════
 
 def spawn_particles(particles, cx, cy, color, count=18):
     for _ in range(count):
@@ -387,18 +347,13 @@ def spawn_particles(particles, cx, cy, color, count=18):
         })
 
 
-def make_blast(cx, cy):
-    return {
-        'cx': cx, 'cy': cy,
-        'radius': 0, 'max_radius': 65,
-        'life': 32, 'max_life': 32,
-        'hit_ids': set(),
-    }
+def draw_particles(particles):
+    for p in particles:
+        alpha = int(255 * (p['life'] / p['max_life']))
+        if alpha > 0:
+            color = (*p['color'], alpha)
+            pygame.draw.circle(screen, p['color'], (int(p['x']), int(p['y'])), p['size'])
 
-
-# ═══════════════════════════════════════════════════════════════════
-#  MAIN
-# ═══════════════════════════════════════════════════════════════════
 
 async def main():
     global screen, clk, font, font_s, font_b, stars
@@ -412,15 +367,16 @@ async def main():
     font_b = pygame.font.Font(None, 70)
     stars  = [[random.randint(0, WIDTH), random.randint(0, HEIGHT),
                random.randint(1, 3), random.uniform(0.3, 1.5)] for _ in range(110)]
+
     while True:   # ← restart loop
         # ── Game State ──────────────────────────────────────────────
         px, py    = WIDTH // 2 - PW // 2, HEIGHT - PH - 10
-        bullets   = []
         enemies   = []
-        tokens    = []
+        bullets   = []
         particles = []
+        tokens    = []
         blasts    = []
-
+        
         score     = 0
         level     = 1
         lives     = PLAYER_LIVES
@@ -431,44 +387,24 @@ async def main():
         laser_on  = 0     # frames the laser beam stays visible
         hits      = 0
         shots     = 0
-
-        e_speed   = BASE_ENEMY_SPD
-        e_spawn   = BASE_SPAWN_MS
-        e_fire    = 180   # frames between enemy shots
-        lvl_msg   = 0
         game_over = False
-
-        pygame.time.set_timer(EVT_SPAWN, e_spawn)
-        pygame.time.set_timer(EVT_TOKEN, 5000)
-
+        
+        # Manual timers (replace pygame.time.set_timer)
+        spawn_timer = 0
+        spawn_delay = BASE_SPAWN_MS // 16  # Convert ms to frames at 60fps
+        token_timer = 0
+        token_delay = 300  # ~5 seconds at 60fps
+        
         # ── Inner Game Loop ──────────────────────────────────────────
         while not game_over:
             # ── Events ────────────────────────────────────────────
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
-
-                if event.type == EVT_SPAWN:
-                    etype = E_DIVER if random.random() < 0.28 else E_NORMAL
-                    ex    = random.randint(0, WIDTH - EW)
-                    enemies.append({
-                        'rect':     pygame.Rect(ex, -EH, EW, EH),
-                        'etype':    etype,
-                        'speed':    e_speed + (1 if etype == E_DIVER else 0),
-                        'diving':   False,
-                        'dive_vx':  0.0,
-                        'shoot_cd': random.randint(60, e_fire),
-                    })
-
-                if event.type == EVT_TOKEN:
-                    ttype = random.choice(WEAPON_TOKENS)
-                    tx    = random.randint(20, WIDTH - 40)
-                    tokens.append((pygame.Rect(tx, 0, 28, 28), ttype))
-
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
+                        # Shoot based on current weapon
                         cx_p = px + PW // 2
-                        # Allow shooting even when invincible/hit — remove inv_cnt check
                         if weapon == W_NORMAL:
                             bullets.append({'type': 'normal',
                                 'rect': pygame.Rect(cx_p - 3, py, 6, 14),
@@ -502,6 +438,29 @@ async def main():
                                 laser_cd = LASER_CD
                                 shots   += 1
 
+            # ── Manual enemy spawning ─────────────────────────────────
+            spawn_timer += 1
+            if spawn_timer >= spawn_delay:
+                spawn_timer = 0
+                etype = E_DIVER if random.random() < 0.28 else E_NORMAL
+                ex    = random.randint(0, WIDTH - EW)
+                enemies.append({
+                    'rect':     pygame.Rect(ex, -EH, EW, EH),
+                    'etype':    etype,
+                    'speed':    BASE_ENEMY_SPD + (1 if etype == E_DIVER else 0),
+                    'diving':   False,
+                    'dive_vx':  0.0,
+                    'shoot_cd': random.randint(60, 180),
+                })
+
+            # ── Manual token spawning ─────────────────────────────────
+            token_timer += 1
+            if token_timer >= token_delay:
+                token_timer = 0
+                ttype = random.choice(WEAPON_TOKENS)
+                tx    = random.randint(20, WIDTH - 40)
+                tokens.append((pygame.Rect(tx, 0, 28, 28), ttype))
+
             # ── Movement ──────────────────────────────────────────
             keys = pygame.key.get_pressed()
             if keys[pygame.K_LEFT]  and px > 0:           px -= PLAYER_SPEED
@@ -533,8 +492,6 @@ async def main():
                     # gradually change vy by accel
                     if 'accel' in b:
                         b['vy'] += b['accel']
-                elif pat == 'normal':
-                    pass
 
                 if b['type'] == 'bomb':
                     b['fuse'] -= 1
@@ -544,6 +501,7 @@ async def main():
                                         b['rect'].centery, ORANGE, 25)
                         dead.append(b)
                         continue
+                        
                 r = b['rect']
                 if r.y < -40 or r.y > HEIGHT + 40 or r.x < -40 or r.x > WIDTH + 40:
                     dead.append(b)
@@ -577,13 +535,15 @@ async def main():
                 else:
                     r.y += int(e['speed'])
 
-                # Enemy fires downward
+                # Enemy shooting
                 e['shoot_cd'] -= 1
                 if e['shoot_cd'] <= 0 and 0 < r.y < HEIGHT - 80:
-                    bullets.append({'type': 'enemy',
+                    bullets.append({
+                        'type': 'enemy',
                         'rect': pygame.Rect(r.centerx - 3, r.bottom, 6, 10),
-                        'vx': 0.0, 'vy': 5.0})
-                    e['shoot_cd'] = random.randint(60, e_fire)
+                        'vy': 5, 'vx': 0, 'age': 0, 'pattern': 'normal'
+                    })
+                    e['shoot_cd'] = random.randint(60, 180)
 
                 if r.y > HEIGHT:
                     enemies.remove(e)
@@ -655,9 +615,7 @@ async def main():
                     if b['type'] == 'enemy' and b['rect'].colliderect(player_rect):
                         lives   -= 1
                         inv_cnt  = INV_DUR
-                        spawn_particles(particles,
-                                        player_rect.centerx, player_rect.centery,
-                                        CYAN, 20)
+                        spawn_particles(particles, player_rect.centerx, player_rect.centery, CYAN, 20)
                         if b in bullets:
                             bullets.remove(b)
                         if lives <= 0:
@@ -670,9 +628,7 @@ async def main():
                     if e['rect'].colliderect(player_rect):
                         lives   -= 1
                         inv_cnt  = INV_DUR
-                        spawn_particles(particles,
-                                        e['rect'].centerx, e['rect'].centery,
-                                        RED, 22)
+                        spawn_particles(particles, e['rect'].centerx, e['rect'].centery, RED, 22)
                         if e in enemies:
                             enemies.remove(e)
                         if lives <= 0:
@@ -682,11 +638,7 @@ async def main():
             # ── Level Up ──────────────────────────────────────────
             if score >= level * 10:
                 level   += 1
-                e_speed += 1
-                e_spawn  = max(250, e_spawn - 100)
-                e_fire   = max(60,  e_fire  - 15)
-                pygame.time.set_timer(EVT_SPAWN, e_spawn)
-                lvl_msg  = 120
+                spawn_delay  = max(15, spawn_delay - 5)  # Faster spawning
 
             # ── Update Particles ──────────────────────────────────
             for p in particles[:]:
@@ -710,35 +662,35 @@ async def main():
             if laser_on > 0:
                 draw_laser(px + PW // 2, py)
             draw_hud(score, level, lives, weapon, w_expire, hits, shots)
-            if lvl_msg > 0:
-                lt = font_b.render(f"LEVEL  {level}", True, GOLD)
-                lt.set_alpha(min(255, lvl_msg * 3))
-                screen.blit(lt, (WIDTH // 2 - lt.get_width() // 2,
-                                 HEIGHT // 2 - 40))
-                lvl_msg -= 1
+            
             pygame.display.flip()
             clk.tick(FPS)
             await asyncio.sleep(0)
 
-        # ── Death animation before game-over screen ───────────────
-        for _ in range(60):
-            screen.fill(DARK_BG)
-            draw_stars()
-            for p in particles[:]:
-                p['x'] += p['vx']; p['y'] += p['vy']
-                p['vy'] += 0.08;   p['life'] -= 1
-                if p['life'] <= 0:
-                    particles.remove(p)
-            draw_particles(particles)
-            pygame.display.flip()
-            await asyncio.sleep(0)
+        # Game over
+        ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        ov.fill((0, 0, 0, 160))
+        screen.blit(ov, (0, 0))
+        go  = font_b.render("GAME  OVER", True, RED)
+        tip = font_s.render("R = Restart        Q = Quit", True, CYAN)
+        screen.blit(go,  (WIDTH // 2 - go.get_width()  // 2, HEIGHT // 2 - 80))
+        screen.blit(tip, (WIDTH // 2 - tip.get_width() // 2, HEIGHT // 2 + 50))
+        pygame.display.flip()
+        
+        while True:
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     return
+                if ev.type == pygame.KEYDOWN:
+                    if ev.key == pygame.K_r:
+                        break
+                    if ev.key == pygame.K_q:
+                        return
+            else:
+                clk.tick(FPS)
+                await asyncio.sleep(0)
+                continue
+            break
 
-        restart = await game_over_screen(score)
-        if not restart:
-            return
-
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
