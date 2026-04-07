@@ -1,21 +1,40 @@
-Galaga Copilot — MegaTech Robot Wars
+# Galaga Copilot — MegaTech Robot Wars
 
-A small pygame-based arcade game.
+A pygame-based arcade shooter with detailed robot graphics and weapon upgrades.
 
-Install (from source):
+## Play Online
 
-1. Ensure Python 3.8+ and pip are installed.
-2. (Optional but recommended) Create and activate a virtualenv.
-3. From the project root run:
+🎮 **[Play in Browser](https://leonardosor.github.io/galaga_copilot/)**
 
-   python -m pip install --upgrade pip build
-   python -m pip install .
+## Run Locally
 
-Run:
+### Desktop Version
+```bash
+python galaga_copilot.py
+```
 
-- From terminal: galaga
-- Or: python -m galaga_copilot
+### Web Version (Local Testing)
+```bash
+cd game/build/web
+python -m http.server 8000
+# Open http://127.0.0.1:8000/
+```
 
-Notes:
-- The package depends on pygame. On Windows pip will usually install a compatible wheel.
-- To build a wheel for distribution: python -m build (installs to dist/)
+## Controls
+- **Arrow Keys**: Move ship
+- **Spacebar**: Shoot
+- **R**: Restart (after game over)  
+- **Q**: Quit (after game over)
+
+## Features
+- 5 weapon types: Normal, Double, Spread, Bomb, Laser
+- Power-up tokens with limited duration
+- Particle effects and explosion blasts  
+- Enemy AI with dive-bomber patterns
+- Progressive difficulty and scoring
+
+## File Structure
+- `galaga_copilot.py` - Desktop version (full features)
+- `game/main.py` - Web-compatible version  
+- `game/build/web/` - Deployed web build
+- `.github/workflows/deploy.yml` - Auto-deployment to GitHub Pages
