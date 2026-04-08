@@ -671,7 +671,7 @@ async def main():
         ov = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 160))
         screen.blit(ov, (0, 0))
-        go  = font_b.render("GAME  OVER", True, RED)
+        go  = font_b.render("GAME  OVER - Hasta la Vista", True, RED)
         tip = font_s.render("R = Restart        Q = Quit", True, CYAN)
         screen.blit(go,  (WIDTH // 2 - go.get_width()  // 2, HEIGHT // 2 - 80))
         screen.blit(tip, (WIDTH // 2 - tip.get_width() // 2, HEIGHT // 2 + 50))
