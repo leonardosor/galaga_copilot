@@ -68,7 +68,7 @@ HISCORE_FILE = os.path.join(os.path.expanduser("~"), ".megatech_robot_wars_hisco
 
 # Display globals — set in main() once pygame is ready.
 display = None   # the real window
-screen  = None   # off-screen world canvas (shaken)
+screen  = None   # off-screen world canvas
 clk     = None
 font = font_s = font_b = font_xl = None
 stars   = []
@@ -288,16 +288,14 @@ STAR_SPD = (0.5, 1.2, 2.6)
 STAR_COL = ((70, 70, 110), (140, 140, 190), (230, 230, 255))
 
 
-def draw_stars(t, ox=0, oy=0, advance=True):
-    """Constant-speed parallax starfield, independent of gameplay.
-    (ox, oy) counter-offsets screen shake so stars stay fixed on screen."""
+def draw_stars(t):
+    """Constant-speed parallax starfield, independent of gameplay."""
     for s in stars:
-        if advance:
-            s[1] += STAR_SPD[s[2]]
-            if s[1] > HEIGHT:
-                s[1] = -2.0
-                s[0] = random.uniform(0, WIDTH)
-        pygame.draw.circle(t, STAR_COL[s[2]], (int(s[0] + ox), int(s[1] + oy)),
+        s[1] += STAR_SPD[s[2]]
+        if s[1] > HEIGHT:
+            s[1] = -2.0
+            s[0] = random.uniform(0, WIDTH)
+        pygame.draw.circle(t, STAR_COL[s[2]], (int(s[0]), int(s[1])),
                            1 if s[2] < 2 else 2)
 
 
@@ -504,7 +502,6 @@ class Game:
         self.hits = self.shots = self.kills = 0
         self.combo = self.combo_t = self.best_combo = 0
 
-        self.shake = 0.0
         self.hitstop = 0
         self.flash, self.flash_col = 0, WHITE
         self.banner, self.banner_text = 120, "LEVEL 1"
@@ -692,7 +689,6 @@ class Game:
         self.burst(x, y, ORANGE, 26, 6, glow=True)
         self.sparks(x, y, YELLOW, 14, 9)
         self.ring(x, y, YELLOW, 80 + 14 * p, 22, 5)
-        self.shake = max(self.shake, 7)
         play("boom")
 
     # ── damage ─────────────────────────────────────────────────────
@@ -712,7 +708,6 @@ class Game:
         col = ENEMY_COLORS[e["kind"]]
         big = e["kind"] == "tank"
         self.explode(e["x"], e["y"], col, 1.8 if big else 1.0)
-        self.shake = max(self.shake, 9 if big else 3.5)
         if big:
             self.hitstop = max(self.hitstop, 3)
         play("boom")
@@ -747,7 +742,6 @@ class Game:
             return
         self.lives -= 1
         self.inv = INV_DUR
-        self.shake = 18
         self.hitstop = 10
         self.flash, self.flash_col = 14, RED
         self.combo = 0
@@ -764,7 +758,6 @@ class Game:
             self.explode(self.px, self.py, CYAN, 3.0)
             self.explode(self.px, self.py, WHITE, 1.5)
             self.flash, self.flash_col = 30, WHITE
-            self.shake = 28
             play("boom_big")
 
     def level_up(self):
@@ -780,9 +773,6 @@ class Game:
 
     # ── update ─────────────────────────────────────────────────────
     def update(self, keys, mouse_down, mouse_pos):
-        self.shake *= 0.86
-        if self.shake < 0.3:
-            self.shake = 0
         if self.flash > 0:
             self.flash -= 1
         if self.hitstop > 0:
@@ -1057,7 +1047,6 @@ class Game:
                 ox, oy = random.uniform(-80, 80), random.uniform(-40, 40)
                 self.explode(b["x"] + ox, b["y"] + oy,
                              random.choice((ORANGE, MAGENTA, YELLOW, RED)), 1.3)
-                self.shake = max(self.shake, 8)
                 play("boom")
             if b["dying"] == 0:
                 for _ in range(4):
@@ -1065,7 +1054,6 @@ class Game:
                                  random.choice((MAGENTA, WHITE, YELLOW)), 3.0)
                 self.ring(b["x"], b["y"], WHITE, 300, 40, 8)
                 self.flash, self.flash_col = 24, WHITE
-                self.shake = 32
                 self.hitstop = 18
                 bonus = 5000 * b["n"]
                 self.score += bonus
@@ -1179,12 +1167,8 @@ class Game:
 
     # ── draw ───────────────────────────────────────────────────────
     def draw(self):
-        ox = oy = 0
-        if self.shake > 0:
-            ox = int(random.uniform(-self.shake, self.shake))
-            oy = int(random.uniform(-self.shake, self.shake))
         screen.fill(DARK_BG)
-        draw_stars(screen, -ox, -oy)
+        draw_stars(screen)
         self.draw_blasts()
         self.draw_rings()
         self.draw_particles()
@@ -1205,11 +1189,7 @@ class Game:
         self.draw_ebullets()
         self.draw_popups()
 
-        # Stars cancel the shake offset, so the background never moves with the game
-        display.fill(DARK_BG)
-        if ox or oy:
-            draw_stars(display, advance=False)   # fill the edge strips uncovered by shake
-        display.blit(screen, (ox, oy))
+        display.blit(screen, (0, 0))
         if self.flash > 0:
             ov = pygame.Surface((WIDTH, HEIGHT))
             ov.fill(self.flash_col)
