@@ -43,6 +43,7 @@ WEAPON_DURATION = 720        # frames (~12 s)
 FIRE_CD = {W_NORMAL: 9, W_DOUBLE: 8, W_SPREAD: 12, W_BOMB: 26, W_LASER: 0}
 MAX_POWER = 3
 TOKEN_LIFE = "life"
+MAX_PARTICLES = 350          # keeps frame time steady in the browser
 
 # Player
 PW, PH       = 52, 58
@@ -222,20 +223,48 @@ _glow_cache = {}
 _txt_cache = {}
 
 
+_glow_base = {}
+_neon_cache = {}
+_flash_surf = None
+GLOW_BUCKETS = (3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 128, 160)
+
+
+def _glow_bucket(r):
+    for b in GLOW_BUCKETS:
+        if r <= b:
+            return b
+    return GLOW_BUCKETS[-1]
+
+
+def _glow_base_surf(r):
+    """Greyscale radial gradient for bucket radius r (built once, at load)."""
+    s = _glow_base.get(r)
+    if s is None:
+        s = pygame.Surface((r * 2, r * 2))
+        s.fill(BLACK)
+        for i in range(r, 0, -1):
+            v = int(255 * (1 - i / r) ** 1.8)
+            pygame.draw.circle(s, (v, v, v), (r, r), i)
+        _glow_base[r] = s
+    return s
+
+
+def prewarm_glows():
+    for b in GLOW_BUCKETS:
+        _glow_base_surf(b)
+
+
 def glow_surf(r, color, k=1.0):
-    r = max(2, int(r))
+    r = _glow_bucket(max(2, int(r)))
     q = max(1, min(8, int(k * 8 + 0.5)))
     key = (r, color, q)
     s = _glow_cache.get(key)
     if s is None:
-        if len(_glow_cache) > 800:
+        if len(_glow_cache) > 2000:
             _glow_cache.clear()
-        s = pygame.Surface((r * 2, r * 2))
-        s.fill(BLACK)
-        cr, cg, cb = (c * q / 8 for c in color)
-        for i in range(r, 0, -1):
-            f = (1 - i / r) ** 1.8
-            pygame.draw.circle(s, (int(cr * f), int(cg * f), int(cb * f)), (r, r), i)
+        # Tinting a pre-built gradient is one C-level fill: no per-frame Python drawing loops.
+        s = _glow_base_surf(r).copy()
+        s.fill(tuple(int(c * q / 8) for c in color), special_flags=pygame.BLEND_MULT)
         _glow_cache[key] = s
     return s
 
@@ -263,20 +292,21 @@ def blit_center(target, surf, cx, cy):
 
 
 def neon_text(target, s, f, col, cx, cy, alpha=255):
-    """Text with a coloured halo."""
-    halo = txt(s, f, col)
-    core = txt(s, f, WHITE)
-    for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
-        if alpha < 255:
-            h = halo.copy()
-            h.set_alpha(alpha // 2)
-            blit_center(target, h, cx + dx, cy + dy)
-        else:
-            blit_center(target, halo, cx + dx, cy + dy)
-    if alpha < 255:
-        core = core.copy()
-        core.set_alpha(alpha)
-    blit_center(target, core, cx, cy)
+    """Text with a coloured halo (composited once, then cached)."""
+    key = (s, id(f), col)
+    surf = _neon_cache.get(key)
+    if surf is None:
+        if len(_neon_cache) > 200:
+            _neon_cache.clear()
+        core = f.render(s, True, WHITE)
+        halo = f.render(s, True, col)
+        surf = pygame.Surface((core.get_width() + 4, core.get_height() + 4), pygame.SRCALPHA)
+        for dx, dy in ((0, 2), (4, 2), (2, 0), (2, 4)):
+            surf.blit(halo, (dx, dy))
+        surf.blit(core, (2, 2))
+        _neon_cache[key] = surf
+    surf.set_alpha(alpha if alpha < 255 else None)
+    blit_center(target, surf, cx, cy)
 
 
 def make_stars():
@@ -538,18 +568,21 @@ class Game:
                             "life": 70 if big else 45, "max": 70 if big else 45, "big": big})
 
     def burst(self, x, y, col, n=18, spd=5.0, size=(2, 5), life=(25, 45), glow=False):
-        if len(self.particles) > 700:
-            n = n // 3
-        for _ in range(n):
+        room = MAX_PARTICLES - len(self.particles)
+        if room <= 0:
+            return
+        n = min(n, room)
+        for i in range(n):
             a = random.uniform(0, 6.2832)
             v = random.uniform(0.6, spd)
             l = random.randint(*life)
             self.particles.append({
                 "x": x, "y": y, "vx": math.cos(a) * v, "vy": math.sin(a) * v,
                 "size": random.randint(*size), "col": col, "life": l, "max": l,
-                "glow": glow, "spark": False})
+                "glow": glow and i % 3 == 0, "spark": False})
 
     def sparks(self, x, y, col, n=10, spd=7.0):
+        n = min(n, MAX_PARTICLES - len(self.particles))
         for _ in range(n):
             a = random.uniform(0, 6.2832)
             v = random.uniform(2, spd)
@@ -907,7 +940,7 @@ class Game:
             b["y"] += b["vy"]
             if b["kind"] == "bomb":
                 b["fuse"] -= 1
-                if random.random() < 0.6:
+                if random.random() < 0.3:
                     self.particles.append({
                         "x": b["x"], "y": b["y"] + 6, "vx": random.uniform(-.5, .5),
                         "vy": 1.5, "size": 2, "col": YELLOW, "life": 10, "max": 10,
@@ -1191,10 +1224,12 @@ class Game:
 
         display.blit(screen, (0, 0))
         if self.flash > 0:
-            ov = pygame.Surface((WIDTH, HEIGHT))
-            ov.fill(self.flash_col)
-            ov.set_alpha(min(180, self.flash * 10))
-            display.blit(ov, (0, 0))
+            global _flash_surf
+            if _flash_surf is None:
+                _flash_surf = pygame.Surface((WIDTH, HEIGHT))
+            _flash_surf.fill(self.flash_col)
+            _flash_surf.set_alpha(min(180, self.flash * 10))
+            display.blit(_flash_surf, (0, 0))
         self.draw_hud()
 
     def draw_blasts(self):
@@ -1203,8 +1238,7 @@ class Game:
             if r < 2:
                 continue
             pct = b["life"] / b["max_life"]
-            draw_glow(b["cx"], b["cy"], r + 8, (255, 120, 20), int(230 * pct))
-            draw_glow(b["cx"], b["cy"], max(3, r // 2), (255, 240, 180), int(255 * pct))
+            draw_glow(b["cx"], b["cy"], r + 8, (255, 150, 40), int(240 * pct))
 
     def draw_rings(self):
         for r in self.rings:
@@ -1286,10 +1320,9 @@ class Game:
                 neon_text(screen, p["text"], font, p["col"], p["x"], p["y"], a)
             else:
                 s = txt(p["text"], font_s, p["col"])
-                if a < 255:
-                    s = s.copy()
-                    s.set_alpha(a)
+                s.set_alpha(a if a < 255 else None)
                 blit_center(screen, s, p["x"], p["y"])
+                s.set_alpha(None)
 
     def draw_hud(self):
         d = display
@@ -1500,6 +1533,7 @@ async def main():
     blit_center(display, font.render("LOADING...", True, CYAN), WIDTH / 2, HEIGHT / 2)
     pygame.display.flip()
     await asyncio.sleep(0)
+    prewarm_glows()
     init_audio()
 
     hiscore = load_hiscore()
