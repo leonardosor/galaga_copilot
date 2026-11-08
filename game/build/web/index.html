@@ -236,11 +236,19 @@ function show_infobox() {
             right: 0;
         }
 
+        /* Game page must never scroll: Space/arrow keys would otherwise move the canvas */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
         body {
             font-family: arial;
             margin: 0;
             padding: none;
             background-color:powderblue;
+            touch-action: none;
         }
 
         .topright{
@@ -274,6 +282,17 @@ function show_infobox() {
            border: 1px solid black;
         }
     </style>
+
+    <script>
+        // Block the browser's default scroll on game keys. preventDefault() does not
+        // stop propagation, so the game still receives these key events.
+        window.addEventListener("keydown", function (e) {
+            if ([" ", "Spacebar", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+                 "PageUp", "PageDown", "Home", "End"].indexOf(e.key) !== -1) {
+                e.preventDefault();
+            }
+        }, { capture: true, passive: false });
+    </script>
 
     <script>
 /*

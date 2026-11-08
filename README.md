@@ -47,3 +47,7 @@ python -m http.server 8000
 ```bash
 PYTHONUTF8=1 python -m pygbag --build game
 ```
+
+`game/build/web/index.html` is hand-patched so Space/arrow keys don't scroll the page
+(`overflow: hidden` + a keydown `preventDefault` handler). If pygbag regenerates the
+template, re-apply that patch or keep the committed `index.html`.
