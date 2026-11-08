@@ -21,20 +21,29 @@ python -m http.server 8000
 ```
 
 ## Controls
-- **Arrow Keys**: Move ship
-- **Spacebar**: Shoot
-- **R**: Restart (after game over)  
-- **Q**: Quit (after game over)
+- **Arrows / WASD**: Move (full 2D in lower half of screen)
+- **Hold Space / Z**: Fire (autofire)
+- **Mouse / touch drag**: Move + autofire
+- **P / Esc**: Pause
+- **M**: Mute
+- **R / Space** on game over: Retry
 
 ## Features
-- 5 weapon types: Normal, Double, Spread, Bomb, Laser
-- Power-up tokens with limited duration
-- Particle effects and explosion blasts  
-- Enemy AI with dive-bomber patterns
-- Progressive difficulty and scoring
+- 5 weapons (Blaster, Double, Spread, Bomb, Laser) — grab the same token again to stack power to LV3
+- Combo multiplier up to x8 for chaining kills
+- 4 enemy types (grunts, dive-bombers, sine-weavers, armored tanks) plus squad formations
+- Dreadnought boss every 5 levels with rotating bullet patterns and an enrage phase
+- Screen shake, hit-stop, hit flashes, additive glow, shockwaves, warp-speed starfield
+- Procedurally synthesized sound effects (no asset files)
+- Persistent high score (localStorage on web, `~/.megatech_robot_wars_hiscore` on desktop)
 
 ## File Structure
-- `galaga_copilot.py` - Desktop version (full features)
-- `game/main.py` - Web-compatible version  
-- `game/build/web/` - Deployed web build
-- `.github/workflows/deploy.yml` - Auto-deployment to GitHub Pages
+- `game/main.py` — the game (single source for desktop and web)
+- `galaga_copilot.py` — desktop launcher for `game/main.py`
+- `game/build/web/` — deployed pygbag build
+- `.github/workflows/deploy.yml` — auto-deployment to GitHub Pages
+
+## Rebuilding the web bundle
+```bash
+PYTHONUTF8=1 python -m pygbag --build game
+```
