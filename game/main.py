@@ -288,20 +288,17 @@ STAR_SPD = (0.5, 1.2, 2.6)
 STAR_COL = ((70, 70, 110), (140, 140, 190), (230, 230, 255))
 
 
-def draw_stars(warp=1.0, target=None):
-    t = target or screen
+def draw_stars(t, ox=0, oy=0, advance=True):
+    """Constant-speed parallax starfield, independent of gameplay.
+    (ox, oy) counter-offsets screen shake so stars stay fixed on screen."""
     for s in stars:
-        sp = STAR_SPD[s[2]] * warp
-        s[1] += sp
-        if s[1] > HEIGHT:
-            s[1] = -2.0
-            s[0] = random.uniform(0, WIDTH)
-        col = STAR_COL[s[2]]
-        if warp > 1.6:
-            pygame.draw.line(t, col, (int(s[0]), int(s[1])),
-                             (int(s[0]), int(s[1] - sp * 3)), 1 + (s[2] == 2))
-        else:
-            pygame.draw.circle(t, col, (int(s[0]), int(s[1])), 1 if s[2] < 2 else 2)
+        if advance:
+            s[1] += STAR_SPD[s[2]]
+            if s[1] > HEIGHT:
+                s[1] = -2.0
+                s[0] = random.uniform(0, WIDTH)
+        pygame.draw.circle(t, STAR_COL[s[2]], (int(s[0] + ox), int(s[1] + oy)),
+                           1 if s[2] < 2 else 2)
 
 
 def draw_player(x, y, inv_cnt, target=None, thrust=1.0):
@@ -511,7 +508,6 @@ class Game:
         self.hitstop = 0
         self.flash, self.flash_col = 0, WHITE
         self.banner, self.banner_text = 120, "LEVEL 1"
-        self.warp = 4.0
         self.spawn_t = 0
         self.token_t = 0
         self.frame = 0
@@ -774,7 +770,6 @@ class Game:
     def level_up(self):
         self.level += 1
         self.kills_lvl = 0
-        self.warp = 7.0
         if self.level % 5 == 0:
             self.boss_warn = 170
             self.banner = 0
@@ -794,7 +789,6 @@ class Game:
             self.hitstop -= 1
             return
         self.frame += 1
-        self.warp += (1.0 - self.warp) * 0.04
 
         if self.dead:
             self.death_t += 1
@@ -1185,8 +1179,12 @@ class Game:
 
     # ── draw ───────────────────────────────────────────────────────
     def draw(self):
+        ox = oy = 0
+        if self.shake > 0:
+            ox = int(random.uniform(-self.shake, self.shake))
+            oy = int(random.uniform(-self.shake, self.shake))
         screen.fill(DARK_BG)
-        draw_stars(self.warp)
+        draw_stars(screen, -ox, -oy)
         self.draw_blasts()
         self.draw_rings()
         self.draw_particles()
@@ -1207,12 +1205,10 @@ class Game:
         self.draw_ebullets()
         self.draw_popups()
 
-        # Compose with screen shake
-        display.fill(BLACK)
-        ox = oy = 0
-        if self.shake > 0:
-            ox = int(random.uniform(-self.shake, self.shake))
-            oy = int(random.uniform(-self.shake, self.shake))
+        # Stars cancel the shake offset, so the background never moves with the game
+        display.fill(DARK_BG)
+        if ox or oy:
+            draw_stars(display, advance=False)   # fill the edge strips uncovered by shake
         display.blit(screen, (ox, oy))
         if self.flash > 0:
             ov = pygame.Surface((WIDTH, HEIGHT))
@@ -1436,7 +1432,7 @@ async def title_screen(hiscore):
                 return True
         t += 1
         display.fill(DARK_BG)
-        draw_stars(2.5, display)
+        draw_stars(display)
         neon_text(display, "MEGATECH", font_xl, CYAN, WIDTH / 2, 130 + 4 * math.sin(t * 0.05))
         neon_text(display, "ROBOT WARS", font_b, MAGENTA, WIDTH / 2, 195)
         draw_player(WIDTH / 2 - PW / 2, 270 + 8 * math.sin(t * 0.04), 0, display, 1.3)
@@ -1476,7 +1472,7 @@ async def game_over_screen(g):
         shown += (g.score - shown) * 0.08 + 1
         shown = min(shown, g.score)
         display.fill(DARK_BG)
-        draw_stars(0.6, display)
+        draw_stars(display)
         neon_text(display, "GAME OVER", font_xl, RED, WIDTH / 2, 140)
         neon_text(display, f"{int(shown):,}", font_b, WHITE, WIDTH / 2, 225)
         if g.new_record or (g.score >= g.hiscore and g.score > 0):
